@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-17T23:19:49.809Z",
+  "generatedAt": "2026-08-31T12:46:29.324Z",
   "flavors": {
     "mainline": {
-      "functions": 6336,
+      "functions": 6337,
       "events": 1783,
       "tables": 1676,
       "globals": 6830,
@@ -18,7 +18,7 @@
     "vanilla": {
       "functions": 4589,
       "events": 1484,
-      "tables": 1331,
+      "tables": 1332,
       "globals": 5210,
       "cvars": 1546
     }
