@@ -10,8 +10,8 @@ Lua API** for the client you are targeting, **Blizzard's own shipped UI source**
 so it can see how the game itself does something, and the **game's art and file
 data** so texture references are real rather than invented.
 
-20 tools. Works with Claude Desktop, Claude Code, Cursor, Cline, and anything
-else that speaks MCP — or
+20 tools. Works with Claude Desktop, Claude Code, Cursor, Cline, Google
+Antigravity (IDE, Desktop & CLI), and anything else that speaks MCP — or
 [browse them in a local web UI](#browse-it-without-an-ai-client) with no AI at
 all.
 
@@ -71,10 +71,115 @@ merge this in rather than replacing the file:
 Then **fully quit Claude Desktop from the system tray** and reopen it — closing
 the window is not enough, and the config is only read at startup.
 
-### Cursor / Cline / Windsurf / other MCP clients
+### Google Antigravity (IDE, Desktop, CLI)
 
-Same JSON block as above. Cursor reads `.cursor/mcp.json` in your project, or
-`~/.cursor/mcp.json` globally. See `mcp-config.example.json` in this repo.
+Antigravity features native plugin support. You can install the bundled `wow` plugin, which automatically registers the MCP server, enforces World of Warcraft development rules, and adds three specialized on-demand skills.
+
+#### 1. Install the Plugin (Recommended)
+
+Copy the `plugins/wow` folder into your Antigravity plugins directory:
+
+| Scope | Location |
+| --- | --- |
+| **Addon project** | `<your-addon-repo>/.agents/plugins/wow` |
+| **Global (all projects)** | `~/.gemini/config/plugins/wow` |
+
+Alternatively, register the path in your `plugins.json` (workspace `.agents/plugins.json` or global `~/.gemini/config/plugins.json`):
+
+```json
+{
+  "entries": [
+    { "path": "path/to/hated-wow-mcp/plugins/wow" }
+  ]
+}
+```
+
+The plugin bundles:
+* **Automatic MCP Registration:** Launches `npx -y hated-wow-mcp` with zero manual configuration under the server name `wow`.
+* **Addon Rules (`rules/AGENTS.md`):** Enforces zero-guesswork API grounding, taint avoidance, safe hooking, and pre-release validation gates.
+* **3 Specialized Skills (Loaded On-Demand):**
+  * `wow-addon-feature`: FrameXML UI templates, mixins, Settings API, texture atlases, and cross-flavor API implementation.
+  * `wow-addon-troubleshoot`: Lua runtime error stack trace analysis, execution and variable taint diagnosis ("Interface action failed"), combat lockdown safety (`InCombatLockdown()`), secret arguments, and patch deprecation repairs.
+  * `wow-addon-scaffold`: Scaffolding new addons, multi-flavor `.toc` manifests, lifecycle architecture (`ADDON_LOADED`, `PLAYER_LOGIN`), SavedVariables, and pre-release quality audits.
+
+In the Antigravity UI, open **Skills & Customizations** in the sidebar to view active tools and skills. You can also reference the server directly in chat using `@wow`.
+
+#### 2. Standalone MCP Server (Without Plugin)
+
+If you only want to register the raw MCP server tools without the rules or skills, add the `mcpServers` block to `~/.gemini/config/mcp_config.json` (global) or `.agents/mcp_config.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "wow": {
+      "command": "npx",
+      "args": ["-y", "hated-wow-mcp"],
+      "env": {
+        "WOW_DEFAULT_FLAVOR": "mainline"
+      }
+    }
+  }
+}
+```
+
+### Claude Code
+
+1. **Add the MCP Server:**
+   ```bash
+   claude mcp add wow -- npx -y hated-wow-mcp
+   ```
+   Add `-s user` to make it available in every project instead of just the current one. Verify with `claude mcp list`.
+
+2. **Configure Addon Rules:**
+   Copy the guidelines from `plugins/wow/rules/AGENTS.md` into your addon repository's `CLAUDE.md` (or `~/.claude/CLAUDE.md` globally) so Claude Code automatically verifies APIs, avoids combat taint, and runs validators before modifying files.
+
+### Claude Desktop
+
+1. **Add the MCP Server:**
+   Edit your config file:
+
+   | OS | Path |
+   | --- | --- |
+   | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+   | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+
+   > **Windows Store install?** If that path doesn't exist, look under
+   > `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\` instead.
+
+   Add the `mcpServers` block (merge into existing keys):
+
+   ```json
+   {
+     "mcpServers": {
+       "wow": {
+         "command": "npx",
+         "args": ["-y", "hated-wow-mcp"],
+         "env": {
+           "WOW_DEFAULT_FLAVOR": "mainline"
+         }
+       }
+     }
+   }
+   ```
+
+   Then fully quit Claude Desktop from the system tray and reopen it.
+
+2. **Configure Addon Rules:**
+   Paste the instructions from `plugins/wow/rules/AGENTS.md` into your Claude Desktop **Project Instructions** or **Custom Instructions**.
+
+### Cursor
+
+1. **Add the MCP Server:**
+   Add the `mcpServers` block above to `.cursor/mcp.json` in your addon project, or globally in `~/.cursor/mcp.json`.
+2. **Configure Addon Rules:**
+   Copy `plugins/wow/rules/AGENTS.md` into your project root as `.cursorrules` or create `.cursor/rules/wow.mdc`.
+
+### Cline (VS Code)
+
+1. **Add the MCP Server:**
+   Open Cline settings > **MCP Servers** (or edit `cline_mcp_settings.json`), and add the `wow` stdio entry (`command: "npx"`, `args: ["-y", "hated-wow-mcp"]`).
+2. **Configure Addon Rules:**
+   Copy `plugins/wow/rules/AGENTS.md` into `.clinerules` at the root of your addon workspace.
 
 ### Then sync the game data
 
@@ -387,6 +492,7 @@ src/
   tools/               MCP tool definitions
   sync/                the three sync scripts, plus their shared entry point
   paths.ts             bundled vs. synced data locations
+plugins/               Google Antigravity plugin (rules, skills, and MCP config)
 server.js              local web UI backend (npm run web)
 index.html             local web UI frontend
 test/smoke.mjs         65 end-to-end checks against real data
