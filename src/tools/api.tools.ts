@@ -10,7 +10,7 @@ import {
   searchFunctions,
   searchTables,
 } from "../wowapi/search.js";
-import { text, type ToolDef } from "./shared.js";
+import { READ_ONLY, text, type ToolDef } from "./shared.js";
 
 const flavorArg = z
   .enum(FLAVOR_IDS)
@@ -22,6 +22,7 @@ export const apiTools: ToolDef[] = [
     name: "wow_api_search",
     config: {
       title: "Search the in-game Lua API",
+      annotations: READ_ONLY,
       description:
         "Search World of Warcraft's in-game Lua API — the functions an addon can " +
         "call from inside the client. Covers namespaced functions (C_Item.GetItemInfo), " +
@@ -71,6 +72,7 @@ export const apiTools: ToolDef[] = [
     name: "wow_api_event_search",
     config: {
       title: "Search in-game events",
+      annotations: READ_ONLY,
       description:
         "Search the events an addon can register with frame:RegisterEvent, and " +
         "show each event's payload arguments in order. Use this whenever writing " +
@@ -101,6 +103,7 @@ export const apiTools: ToolDef[] = [
     name: "wow_api_type_search",
     config: {
       title: "Search API enums, structures and constants",
+      annotations: READ_ONLY,
       description:
         "Search the Enum.*, Constants.* and structure tables the in-game API uses " +
         "— for example Enum.ItemQuality or the AuraData structure returned by " +
@@ -136,9 +139,10 @@ export const apiTools: ToolDef[] = [
     name: "wow_api_diff",
     config: {
       title: "Compare API availability across clients",
+      annotations: READ_ONLY,
       description:
         "Check whether a function, event or type exists in each game client " +
-        "(retail, Classic progression, Classic Era). Use this before writing code " +
+        "(retail, Classic progression, Classic Era, WoW Forever). Use this before writing code " +
         "that has to run on more than one flavor, or to explain why something " +
         "works on Classic but not retail.",
       inputSchema: {
@@ -151,7 +155,7 @@ export const apiTools: ToolDef[] = [
       const target = name as string;
       const lines: string[] = [`Availability of "${target}":`, ""];
 
-      for (const flavorId of ["mainline", "mists", "vanilla"]) {
+      for (const flavorId of ["mainline", "mists", "vanilla", "forever"]) {
         const f = resolveFlavor(flavorId);
         const index = loadIndex(f);
 
@@ -174,9 +178,17 @@ export const apiTools: ToolDef[] = [
         if (isEvent) found.push("valid event");
         if (type) found.push(`${type.kind} table`);
 
-        lines.push(
-          `  ${f.label.padEnd(34)} ${found.length ? found.join("; ") : "NOT AVAILABLE"}`,
-        );
+        // With no global list for this client, a bare name that is not
+        // documented might still be a legacy global, so "NOT AVAILABLE" would
+        // be a claim we cannot back. Qualified names, events and types are
+        // fully covered by the generated docs, so those stay definite.
+        const verdict = found.length
+          ? found.join("; ")
+          : !index.hasGlobalList && !target.includes(".")
+            ? "not documented (no global list published, may still be a legacy global)"
+            : "NOT AVAILABLE";
+
+        lines.push(`  ${f.label.padEnd(34)} ${verdict}`);
       }
 
       // A bare name missing everywhere usually means it moved into a namespace,
@@ -199,6 +211,7 @@ export const apiTools: ToolDef[] = [
     name: "wow_api_stats",
     config: {
       title: "Show what API data is loaded",
+      annotations: READ_ONLY,
       description:
         "Report which API index, UI source and game data sets this server has, " +
         "when each was synced, and how large it is. Use this to confirm the data " +
@@ -208,10 +221,11 @@ export const apiTools: ToolDef[] = [
     handler: async () => {
       const lines: string[] = ["WoW MCP server — loaded data sets", ""];
 
-      for (const flavorId of ["mainline", "mists", "vanilla"]) {
+      for (const flavorId of ["mainline", "mists", "vanilla", "forever"]) {
         const f = resolveFlavor(flavorId);
         try {
           const index = loadIndex(f);
+          const missing = index.raw.unavailable ?? [];
           lines.push(
             `  ${f.label}`,
             `    index:    ${index.raw.upstream.uiSource}`,
@@ -219,6 +233,9 @@ export const apiTools: ToolDef[] = [
             `    contents: ${Object.entries(index.raw.counts)
               .map(([k, v]) => `${v} ${k}`)
               .join(", ")}`,
+            ...(missing.length
+              ? [`    no upstream source yet: ${missing.join(", ")}`]
+              : []),
             "",
           );
         } catch (err) {

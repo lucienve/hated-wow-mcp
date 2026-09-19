@@ -19,6 +19,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
+import { defaultSyncIndexes } from "../config.js";
 import { cacheRoot } from "../paths.js";
 
 // A ~48MB checkout plus its index — writable cache root, not the package.
@@ -32,6 +33,9 @@ const BRANCHES: Record<string, string> = {
   mainline: "live",
   classic: "classic",
   vanilla: "classic_era",
+  // WoW Forever (Camelot). Built on the retail codebase, so it needs its own
+  // index; see FLAVORS.forever in config.ts.
+  forever: "forever",
 };
 
 // ---------------------------------------------------------------------------
@@ -440,11 +444,39 @@ async function buildIndex(flavor: string): Promise<UiSourceIndex> {
 
 async function main(): Promise<void> {
   const requested = process.argv.slice(2).filter((a) => !a.startsWith("-"));
-  const flavors = requested.length > 0 ? requested : ["mainline"];
+
+  // Naming flavors is an override. With none named, index the default flavor
+  // plus every client found installed, so an installed WoW Forever is picked up
+  // without a flag.
+  let flavors = requested;
+  if (requested.length === 0) {
+    const chosen = defaultSyncIndexes();
+    flavors = chosen.keys;
+    process.stderr.write(
+      `indexing: ${flavors.join(", ")}` +
+        (chosen.installed.length
+          ? ` (default flavor plus installed clients: ${chosen.installed.join(", ")}). ` +
+            "Name flavors after -- to override.\n"
+          : " (default flavor; no installed clients found).\n"),
+    );
+  }
 
   await mkdir(CHECKOUT_DIR, { recursive: true });
 
-  const indexes: Record<string, UiSourceIndex> = {};
+  const target = resolve(DATA_DIR, "uisource-index.json");
+
+  // Start from what is already indexed. The file holds one entry per flavor,
+  // and this used to write only the flavors named on the command line, so
+  // syncing `forever` alone silently deleted the retail index, and vice versa.
+  let indexes: Record<string, UiSourceIndex> = {};
+  if (existsSync(target)) {
+    try {
+      indexes = JSON.parse(readFileSync(target, "utf8")) as Record<string, UiSourceIndex>;
+    } catch {
+      process.stderr.write("existing index is unreadable, rebuilding it from scratch\n");
+    }
+  }
+
   for (const flavor of flavors) {
     indexes[flavor] = await buildIndex(flavor);
     process.stderr.write(
@@ -452,9 +484,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const target = resolve(DATA_DIR, "uisource-index.json");
   await writeFile(target, JSON.stringify(indexes), "utf8");
-  process.stderr.write(`\nwrote ${target}\nDone.\n`);
+  process.stderr.write(
+    `\nwrote ${target} (${Object.keys(indexes).join(", ")})\nDone.\n`,
+  );
 }
 
 main().catch((err) => {

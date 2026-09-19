@@ -9,7 +9,13 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 
+import { FLAVORS } from "../dist/config.js";
 import { ALL_TOOLS } from "../dist/server.js";
+
+// The Interface number for the current retail build, read from config rather
+// than written out. It changes every patch, and these tests used to hard-code
+// the previous one, so each bump failed them for a reason unrelated to the code.
+const CURRENT_RETAIL = FLAVORS.mainline.interfaceVersion;
 
 /**
  * Invokes a tool the way server.ts does — catching thrown errors and returning
@@ -236,12 +242,12 @@ console.log("\n== TOC validation ==");
 
 await check("accepts a current retail toc", "wow_toc_validate", {
   fileName: "MyAddon.toc",
-  toc: `## Interface: 120007\n## Title: MyAddon\n## SavedVariables: MyAddonDB\n\nCore.lua\n`,
+  toc: `## Interface: ${CURRENT_RETAIL}\n## Title: MyAddon\n## SavedVariables: MyAddonDB\n\nCore.lua\n`,
 }, (b) => has(b, "No issues found"));
 
 await check("catches suffix/interface mismatch", "wow_toc_validate", {
   fileName: "MyAddon_Vanilla.toc",
-  toc: `## Interface: 120007\n## Title: MyAddon\n\nCore.lua\n`,
+  toc: `## Interface: ${CURRENT_RETAIL}\n## Title: MyAddon\n\nCore.lua\n`,
 }, (b) => {
   has(b, "filename suffix targets");
   has(b, "11509");
@@ -249,7 +255,7 @@ await check("catches suffix/interface mismatch", "wow_toc_validate", {
 
 await check("catches an unknown directive", "wow_toc_validate", {
   fileName: "MyAddon.toc",
-  toc: `## Interface: 120007\n## Title: MyAddon\n## Colour: blue\n\nCore.lua\n`,
+  toc: `## Interface: ${CURRENT_RETAIL}\n## Title: MyAddon\n## Colour: blue\n\nCore.lua\n`,
 }, (b) => {
   has(b, "not a directive");
   has(b, "X-Colour");
@@ -257,7 +263,7 @@ await check("catches an unknown directive", "wow_toc_validate", {
 
 await check("catches a non-loadable file extension", "wow_toc_validate", {
   fileName: "MyAddon.toc",
-  toc: `## Interface: 120007\n## Title: MyAddon\n\nCore.txt\n`,
+  toc: `## Interface: ${CURRENT_RETAIL}\n## Title: MyAddon\n\nCore.txt\n`,
 }, (b) => has(b, "neither a .lua nor a .xml"));
 
 console.log("\n== Blizzard UI source ==");
@@ -282,6 +288,34 @@ await check("refuses to escape the checkout", "wow_ui_read_file",
   { path: "../../../../etc/passwd" }, (b, r) => {
     assert.ok(r.isError, "should be an error result");
     has(b, "Refusing to read outside");
+  });
+
+await check("a bare filename suggests the full path", "wow_ui_read_file",
+  { path: "UIParent.lua" }, (b, r) => {
+    assert.ok(r.isError, "should be an error result");
+    has(b, "Did you mean");
+    has(b, "Interface/AddOns/Blizzard_UIParent/UIParent.lua");
+    assert.ok(!b.includes("wow_ui_find_file"), "must not name a tool that does not exist");
+  });
+
+await check("a wrong-case filename suggests the right one", "wow_ui_read_file",
+  { path: "uiparent.lua" }, (b, r) => {
+    assert.ok(r.isError, "should be an error result");
+    has(b, "Interface/AddOns/Blizzard_UIParent/UIParent.lua");
+  });
+
+await check("a partial path with backslashes still suggests", "wow_ui_read_file",
+  { path: "Blizzard_UIParent\\UIParent.lua" }, (b, r) => {
+    assert.ok(r.isError, "should be an error result");
+    has(b, "Interface/AddOns/Blizzard_UIParent/UIParent.lua");
+  });
+
+await check("a missing file points at tools that exist", "wow_ui_read_file",
+  { path: "Interface/AddOns/NoSuchAddon/NoSuchFile.lua" }, (b, r) => {
+    assert.ok(r.isError, "should be an error result");
+    assert.ok(!b.includes("Did you mean"), "nothing matches, so nothing to suggest");
+    has(b, "wow_ui_grep");
+    assert.ok(!b.includes("wow_ui_find_file"), "must not name a tool that does not exist");
   });
 
 await check("lists Blizzard packages", "wow_ui_list_packages",
@@ -323,7 +357,7 @@ await check("generates a complete addon skeleton", "wow_addon_scaffold", {
   withOptions: true,
 }, (b) => {
   has(b, "TestAddon/TestAddon.toc");
-  has(b, "## Interface: 120007");
+  has(b, `## Interface: ${CURRENT_RETAIL}`);
   has(b, "TestAddon/Core.lua");
   has(b, "TestAddon/Templates.xml");
   has(b, "TestAddon/Options.lua");
@@ -334,7 +368,7 @@ await check("multi-flavor scaffold lists every interface", "wow_addon_scaffold",
   name: "MultiAddon",
   flavors: ["mainline", "vanilla"],
 }, (b) => {
-  has(b, "120007");
+  has(b, String(CURRENT_RETAIL));
   has(b, "11509");
 });
 
@@ -397,9 +431,20 @@ await check("finds a CVar with its options-UI label", "wow_cvar_search",
 await check("infers the value shape from how Blizzard reads it", "wow_cvar_search",
   { query: "colorblindMode" }, (b) => has(b, "boolean"));
 
+// The CVar that used to be here, nameplateShowOnlyNameForFriendlyPlayerUnits, is
+// set through the options screen with no direct GetCVar/SetCVar call. The test
+// asserted "never touches it" about it, so it was checking the bug rather than
+// the behavior. This one has neither a call nor a settings registration.
 await check("reports a CVar the UI never touches rather than hiding it", "wow_cvar_search",
-  { query: "nameplateShowOnlyNameForFriendlyPlayerUnits" }, (b) =>
+  { query: "nameplateCheckDistanceForTarget" }, (b) =>
     has(b, "never touches it"));
+
+await check("a CVar set only through the options screen is not called untouched", "wow_cvar_search",
+  { query: "nameplateShowOnlyNameForFriendlyPlayerUnits" }, (b) => {
+    lacks(b, "never touches it");
+    has(b, "options screen");
+    has(b, "UNIT_NAMEPLATES_FRIENDLY_PLAYER_SHOW_ONLY_NAME");
+  });
 
 await check("usedOnly drops registry-only entries", "wow_cvar_search",
   { query: "nameplate", usedOnly: true, limit: 20 }, (b) =>
@@ -555,13 +600,38 @@ await verify("writeIfChanged ignores generatedAt when deciding whether to write"
 });
 console.log("\n== Data staleness ==");
 
-await verify("fresh data carries no staleness warning", async () => {
-  const result = await byName.get("wow_cvar_search").handler({ query: "colorblindMode" });
-  const body = result.content.map((c) => c.text).join("\n");
-  assert.ok(
-    !body.includes("This answer comes from data synced"),
-    "synced today, so nothing should be flagged as stale",
-  );
+// This used to assert that the machine's data was fresh ("synced today"). That
+// was true the day it was written and false a month later, so the suite failed
+// for a reason unrelated to any change. The invariant worth testing is that the
+// warning appears exactly when the data is past the threshold, whatever age the
+// data on this machine happens to be, and that each flavor is aged on its own.
+await verify("the staleness warning tracks each flavor's own data age", async () => {
+  const { loadUiSourceGeneratedAt } = await import("../dist/uisource/index.js");
+  const { resolveFlavor } = await import("../dist/config.js");
+  const { ageInDays, STALE_AFTER_DAYS } = await import("../dist/tools/shared.js");
+
+  let checked = 0;
+  for (const id of ["mainline", "forever"]) {
+    const flavor = resolveFlavor(id);
+    const syncedAt = loadUiSourceGeneratedAt(flavor);
+    if (!syncedAt) continue; // not synced on this machine, so nothing to age
+
+    const result = await byName.get("wow_cvar_search").handler({
+      query: "colorblindMode",
+      flavor: id,
+    });
+    const body = result.content.map((c) => c.text).join("\n");
+    const flagged = body.includes("This answer comes from data synced");
+    const stale = ageInDays(syncedAt) >= STALE_AFTER_DAYS;
+
+    assert.equal(
+      flagged,
+      stale,
+      `${id}: data is ${ageInDays(syncedAt)} days old, warning shown: ${flagged}`,
+    );
+    checked++;
+  }
+  assert.ok(checked > 0, "no UI source synced at all, so this checked nothing");
 });
 
 await verify("the note fires past the threshold, and not before", async () => {
@@ -584,6 +654,628 @@ await verify("every synced-data tool declares its dataset", async () => {
   ];
   const missing = SYNCED.filter((n) => !tools.find((t) => t.name === n)?.dataset);
   assert.deepEqual(missing, [], `these would never warn when their data goes stale: ${missing}`);
+});
+
+console.log("\n== WoW Forever ==");
+
+// Blizzard's internal game type for WoW Forever is "camelot", and its UI source
+// is the retail codebase with Camelot overrides, so it is neither Classic Era
+// nor a Classic progression client. These pin the places where treating it like
+// one of those would give confident wrong answers.
+
+await verify("WoW Forever is its own flavor at Interface 16001", async () => {
+  const { resolveFlavor } = await import("../dist/config.js");
+  const f = resolveFlavor("forever");
+  assert.equal(f.interfaceVersion, 16001);
+  assert.equal(f.apiIndex, "forever", "must not share the classic or vanilla index");
+});
+
+await verify("Interface numbers sharing a major version resolve to the right flavor", async () => {
+  const { flavorForInterface } = await import("../dist/config.js");
+  // Classic Era (1.15.x) and WoW Forever (1.60.x) are both major 1.
+  assert.equal(flavorForInterface(16001).id, "forever");
+  assert.equal(flavorForInterface(16002).id, "forever", "a patch bump stays Forever");
+  assert.equal(flavorForInterface(11509).id, "vanilla");
+  assert.equal(flavorForInterface(11508).id, "vanilla", "an older Era number stays Era");
+  assert.equal(flavorForInterface(120100).id, "mainline");
+});
+
+await check("a .toc declaring 16001 is not judged against Classic Era", "wow_toc_validate", {
+  fileName: "Test.toc",
+  toc: "## Interface: 16001\n## Title: Test\nCore.lua\n",
+}, (b) => {
+  lacks(b, "behind the current");
+  lacks(b, "does not match any current client");
+  has(b, "WoW Forever");
+});
+
+await check("a multi-Interface line maps each number to its own flavor", "wow_toc_validate", {
+  fileName: "Test.toc",
+  toc: "## Interface: 16001, 50504, 11509\n## Title: Test\nCore.lua\n",
+}, (b) => {
+  has(b, "WoW Forever (Camelot)");
+  has(b, "Classic Era");
+  lacks(b, "does not match any current client");
+});
+
+await check("a newer Interface number is not called out of date", "wow_toc_validate", {
+  fileName: "Test.toc",
+  toc: "## Interface: 129999\n## Title: Test\nCore.lua\n",
+}, (b) => {
+  // This used to say "behind the current build" and suggest the *lower*
+  // number, telling authors targeting a PTR to downgrade.
+  lacks(b, "behind the current");
+  has(b, "newer than");
+});
+
+await verify("the shipped index for WoW Forever says what upstream does not publish", async () => {
+  const { readFile: rf } = await import("node:fs/promises");
+  const idx = JSON.parse(
+    await rf(new URL("../data/api-forever.json", import.meta.url), "utf8"),
+  );
+  assert.ok(idx.counts.functions > 1000, `only ${idx.counts.functions} functions`);
+  assert.equal(idx.upstream.resources, null, "there is no Ketho branch for it");
+  // Empty lists here mean "no source", not "this client has none".
+  for (const k of ["globals", "eventNames", "cvars"]) {
+    assert.ok(idx.unavailable.includes(k), `${k} should be marked unavailable`);
+  }
+});
+
+await verify("the manifest still lists every flavor after a single-flavor sync", async () => {
+  const { readFile: rf } = await import("node:fs/promises");
+  const m = JSON.parse(await rf(new URL("../data/manifest.json", import.meta.url), "utf8"));
+  for (const f of ["mainline", "classic", "vanilla", "forever"]) {
+    assert.ok(m.flavors[f], `manifest is missing ${f}`);
+  }
+});
+
+await check("API search answers from the WoW Forever index", "wow_api_search", {
+  query: "C_Item.GetItemInfo", flavor: "forever", limit: 1,
+}, (b) => {
+  has(b, "WoW Forever (Camelot)");
+  has(b, "C_Item.GetItemInfo");
+});
+
+await check("lint does not flag legacy globals it has no list for", "wow_lua_lint", {
+  flavor: "forever",
+  code: `local a = strsplit("-", "a-b")\ntinsert({}, 1)\nlocal x = DefinitelyNotABlizzardApi(1)`,
+}, (b) => {
+  lacks(b, "api/unknown");
+  lacks(b, "api/moved-to-namespace");
+  has(b, "api/unchecked");
+});
+
+await check("lint still catches removed API on WoW Forever", "wow_lua_lint", {
+  flavor: "forever",
+  code: `local name = UnitAura("player", 1)`,
+}, (b) => has(b, "C_UnitAuras.GetAuraDataByIndex"));
+
+await check("the same unknown call is still flagged on retail", "wow_lua_lint", {
+  flavor: "mainline",
+  code: `local x = DefinitelyNotABlizzardApi(1)`,
+}, (b) => {
+  // Guards against the Forever carve-out leaking: retail has a global list,
+  // so the unknown-function check must keep running there.
+  has(b, "api/unknown");
+  lacks(b, "api/unchecked");
+});
+
+await check("api diff does not claim a bare name is absent when it cannot know", "wow_api_diff", {
+  name: "strsplit",
+}, (b) => has(b, "may still be a legacy global"));
+
+await check("api diff stays definite for a qualified name", "wow_api_diff", {
+  name: "C_DefinitelyNotAnApi.Nothing",
+}, (b) => has(b, "NOT AVAILABLE"));
+
+await verify("a CVar hit with no registry is not reported as unregistered", async () => {
+  const { searchCVars, renderCVar } = await import("../dist/uisource/cvars.js");
+  const used = [{ name: "someCVar", refs: 3, files: ["a.lua"], accessors: ["GetCVar"] }];
+  const hits = searchCVars("someCVar", new Set(), new Map(), used, 5, false);
+  assert.equal(hits.length, 1);
+  assert.ok(!renderCVar(hits[0]).includes("not listed"), "there is no registry to be missing from");
+});
+
+await verify("a CVar set only through the options screen is not called untouched", async () => {
+  const { renderCVar } = await import("../dist/uisource/cvars.js");
+  const optionsOnly = renderCVar({
+    name: "onlyInOptions", refs: 0, files: [], accessors: [],
+    labelKey: "SOME_LABEL", tooltipKey: "OPTION_TOOLTIP_SOME_LABEL", known: true,
+  });
+  // 134 of 524 CVars in the WoW Forever UI index look like this. They have no
+  // direct GetCVar/SetCVar call but are registered in the settings screen.
+  assert.ok(!optionsOnly.includes("never touches"), optionsOnly);
+  assert.ok(optionsOnly.includes("options screen"), optionsOnly);
+  assert.ok(optionsOnly.includes("SOME_LABEL"), "the label it has must not be dropped");
+  assert.ok(!optionsOnly.includes("seen in:"), "no files means no dangling header");
+
+  const untouched = renderCVar({
+    name: "unused", refs: 0, files: [], accessors: [], known: true,
+  });
+  assert.ok(untouched.includes("never touches"), "genuinely unused CVars still say so");
+});
+
+await verify("an unsynced flavor never gets another flavor's UI source", async () => {
+  const { loadUiSource } = await import("../dist/uisource/index.js");
+  const { FLAVORS } = await import("../dist/config.js");
+  for (const flavor of Object.values(FLAVORS)) {
+    try {
+      const src = loadUiSource(flavor);
+      // Whatever machine this runs on, a returned index must be the one asked
+      // for. It used to fall back to retail, silently.
+      assert.equal(src.raw.flavor, flavor.apiIndex, `${flavor.id} was answered from ${src.raw.flavor}`);
+    } catch (err) {
+      assert.match(err.message, /sync/i, `${flavor.id}: an error must say how to fix it`);
+    }
+  }
+});
+
+await verify("a WoW Forever install is detected under _classic_beta_", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { findInstallations } = await import("../dist/config.js");
+
+  const root = mkdtempSync(join(tmpdir(), "wowroot-"));
+  const prior = process.env.WOW_INSTALL_PATH;
+  try {
+    mkdirSync(join(root, "_classic_beta_", "Interface", "AddOns"), { recursive: true });
+    writeFileSync(
+      join(root, ".build.info"),
+      "Branch!STRING:0|Product!STRING:0|Version!STRING:0\nus|wow_classic_beta|1.60.1.69893\n",
+    );
+    process.env.WOW_INSTALL_PATH = root;
+    const found = findInstallations();
+    assert.equal(found.length, 1);
+    assert.equal(found[0].flavor.id, "forever");
+    assert.equal(found[0].build, "1.60.1.69893", "the build must come from the wow_classic_beta row");
+  } finally {
+    if (prior === undefined) delete process.env.WOW_INSTALL_PATH;
+    else process.env.WOW_INSTALL_PATH = prior;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await verify("a bare UI source sync follows the installed clients", async () => {
+  const { mkdtempSync, mkdirSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { defaultSyncIndexes } = await import("../dist/config.js");
+
+  const priorPath = process.env.WOW_INSTALL_PATH;
+  const priorFlavor = process.env.WOW_DEFAULT_FLAVOR;
+  const keysFor = (dirs, defaultFlavor) => {
+    const root = mkdtempSync(join(tmpdir(), "wowroot-"));
+    try {
+      for (const d of dirs) mkdirSync(join(root, d, "Interface", "AddOns"), { recursive: true });
+      process.env.WOW_INSTALL_PATH = root;
+      if (defaultFlavor) process.env.WOW_DEFAULT_FLAVOR = defaultFlavor;
+      else delete process.env.WOW_DEFAULT_FLAVOR;
+      return defaultSyncIndexes().keys;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  try {
+    // The point of the feature: an installed WoW Forever is indexed with no flag.
+    assert.deepEqual(keysFor(["_retail_", "_classic_beta_"]), ["mainline", "forever"]);
+    // The default flavor is always indexed, even if that client is not installed,
+    // because every tool answers for it when a call names none.
+    assert.deepEqual(keysFor(["_classic_beta_"]), ["mainline", "forever"]);
+    // Nothing installed: behaves exactly as before, retail only.
+    assert.deepEqual(keysFor([]), ["mainline"]);
+    // Retail-only developers get no extra download.
+    assert.deepEqual(keysFor(["_retail_"]), ["mainline"]);
+    // Each client maps to its own index; retail leads and nothing repeats.
+    const all = keysFor(["_classic_beta_", "_classic_era_", "_classic_", "_retail_"]);
+    assert.equal(all[0], "mainline");
+    assert.deepEqual([...all].sort(), ["classic", "forever", "mainline", "vanilla"]);
+    // A different default flavor is honoured.
+    assert.deepEqual(keysFor([], "forever"), ["forever"]);
+  } finally {
+    if (priorPath === undefined) delete process.env.WOW_INSTALL_PATH;
+    else process.env.WOW_INSTALL_PATH = priorPath;
+    if (priorFlavor === undefined) delete process.env.WOW_DEFAULT_FLAVOR;
+    else process.env.WOW_DEFAULT_FLAVOR = priorFlavor;
+  }
+});
+
+console.log("\n== MCP protocol ==");
+
+// Everything above calls tool handlers directly. A real client never does: it
+// spawns the server, speaks JSON-RPC over stdio, and reads the schemas the SDK
+// serialises. Whether stdout stays clean, what tools/list actually carries, and
+// how a bad call is reported are properties of that wire, and only a test that
+// speaks it can notice them change.
+async function withServer(run) {
+  const { spawn } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const { tmpdir } = await import("node:os");
+  const entry = fileURLToPath(new URL("../dist/index.js", import.meta.url));
+
+  // A different cwd, as npx and every client launch it from somewhere else.
+  const child = spawn(process.execPath, [entry], { cwd: tmpdir(), stdio: ["pipe", "pipe", "pipe"] });
+  let buf = "";
+  let stray = 0;
+  let nextId = 0;
+  const waiting = new Map();
+  child.stdout.on("data", (chunk) => {
+    buf += chunk.toString();
+    let nl;
+    while ((nl = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      try {
+        const msg = JSON.parse(line);
+        if (msg.id !== undefined && waiting.has(msg.id)) {
+          waiting.get(msg.id)(msg);
+          waiting.delete(msg.id);
+        }
+      } catch {
+        stray++; // anything on stdout that is not JSON corrupts the transport
+      }
+    }
+  });
+
+  const request = (method, params) =>
+    new Promise((resolve, reject) => {
+      const id = ++nextId;
+      const timer = setTimeout(() => reject(new Error(`${method} timed out`)), 20_000);
+      waiting.set(id, (msg) => { clearTimeout(timer); resolve(msg); });
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    });
+
+  try {
+    const init = await request("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "smoke", version: "1" },
+    });
+    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+    return await run({ request, init: init.result, stray: () => stray });
+  } finally {
+    child.kill();
+  }
+}
+
+await verify("the server speaks MCP over stdio and lists every tool", async () => {
+  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  await withServer(async ({ request, init, stray }) => {
+    assert.equal(init.serverInfo.version, pkg.version, "reports package.json's version");
+    assert.ok(init.capabilities.tools, "declares the tools capability");
+    assert.ok(init.instructions, "sends its usage instructions");
+    const list = await request("tools/list", {});
+    assert.equal(list.result.tools.length, ALL_TOOLS.length);
+    assert.equal(stray(), 0, "stdout carried something that is not JSON-RPC");
+  });
+});
+
+await verify("no tool schema carries keywords that Gemini-based clients reject", async () => {
+  await withServer(async ({ request }) => {
+    const { tools } = (await request("tools/list", {})).result;
+    const bad = [];
+    const walk = (node, tool) => {
+      if (Array.isArray(node)) return node.forEach((n) => walk(n, tool));
+      if (!node || typeof node !== "object") return;
+      for (const [k, v] of Object.entries(node)) {
+        if (k === "$schema" || (k === "additionalProperties" && typeof v === "boolean")) {
+          bad.push(`${tool}: ${k}`);
+        }
+        walk(v, tool);
+      }
+    };
+    for (const t of tools) walk(t.inputSchema, t.name);
+    assert.deepEqual(bad, [], `these fail Gemini function declarations:\n  ${bad.join("\n  ")}`);
+  });
+});
+
+await verify("stripping strict keywords keeps schemas that mean something", async () => {
+  const { stripStrictKeywords } = await import("../dist/server.js");
+  const out = stripStrictKeywords({
+    $schema: "x",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      // A property named after the keyword holds a schema, so it stays.
+      additionalProperties: { type: "string" },
+      byName: { type: "object", additionalProperties: { type: "number" } },
+    },
+  });
+  assert.equal(out.$schema, undefined);
+  assert.equal(out.additionalProperties, undefined);
+  assert.deepEqual(out.properties.additionalProperties, { type: "string" });
+  assert.deepEqual(out.properties.byName.additionalProperties, { type: "number" });
+});
+
+await verify("every tool declares annotations and only the scaffold can write", async () => {
+  await withServer(async ({ request }) => {
+    const { tools } = (await request("tools/list", {})).result;
+    for (const t of tools) {
+      assert.ok(t.annotations, `${t.name} declares no annotations`);
+      if (t.name === "wow_addon_scaffold") {
+        assert.equal(t.annotations.readOnlyHint, false, "the scaffold writes files");
+        assert.equal(t.annotations.destructiveHint, true, "and can overwrite them");
+      } else {
+        assert.equal(t.annotations.readOnlyHint, true, `${t.name} should be read-only`);
+      }
+      assert.equal(t.annotations.openWorldHint, false, `${t.name} reaches nothing beyond the machine`);
+    }
+  });
+});
+
+await verify("a tool call works end to end over the wire", async () => {
+  await withServer(async ({ request, stray }) => {
+    const res = await request("tools/call", {
+      name: "wow_api_search",
+      arguments: { query: "UnitHealth", limit: 3 },
+    });
+    assert.ok(!res.result.isError, JSON.stringify(res.result).slice(0, 200));
+    assert.ok(res.result.content[0].text.includes("UnitHealth"));
+    assert.equal(stray(), 0);
+  });
+});
+
+await verify("a bad call is reported without taking the server down", async () => {
+  await withServer(async ({ request }) => {
+    const bad = await request("tools/call", {
+      name: "wow_api_search",
+      arguments: { query: "x", flavor: "not-a-flavor" },
+    });
+    // Either a tool error or a JSON-RPC error is acceptable. Silence is not.
+    assert.ok(bad.error || bad.result?.isError, "an invalid flavor was accepted");
+    const after = await request("tools/list", {});
+    assert.equal(after.result.tools.length, ALL_TOOLS.length, "the server stopped answering");
+  });
+});
+
+console.log("\n== Scaffold write safety ==");
+
+// wow_addon_scaffold with `write` saves into the real AddOns folder. It used to
+// call writeFileSync without looking first, so scaffolding a name that matched
+// an installed addon silently replaced that addon's files.
+async function scaffoldInTempRoot(run) {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const root = mkdtempSync(join(tmpdir(), "addons-"));
+  const prior = process.env.WOW_ADDON_PATH;
+  process.env.WOW_ADDON_PATH = root;
+  try {
+    await run(root, join);
+  } finally {
+    if (prior === undefined) delete process.env.WOW_ADDON_PATH;
+    else process.env.WOW_ADDON_PATH = prior;
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+await verify("scaffold without write returns files and touches nothing", async () => {
+  await scaffoldInTempRoot(async (root) => {
+    const res = await byName.get("wow_addon_scaffold").handler({ name: "Probe" });
+    assert.ok(res.content[0].text.includes("Probe/Probe.toc"));
+    assert.ok(!existsSync(`${root}/Probe`), "wrote to disk without being asked");
+  });
+});
+
+await verify("scaffold refuses to overwrite an existing addon", async () => {
+  const { writeFileSync, readFileSync } = await import("node:fs");
+  await scaffoldInTempRoot(async (root, join) => {
+    const tool = byName.get("wow_addon_scaffold");
+    const first = await tool.handler({ name: "Probe", write: true });
+    assert.ok(!first.isError, first.content[0].text);
+
+    // Stand in for the user's own edits to an addon that already exists.
+    const core = join(root, "Probe", "Core.lua");
+    writeFileSync(core, "-- the user's real work\n");
+
+    const second = await tool.handler({ name: "Probe", write: true });
+    assert.ok(second.isError, "a second write over existing files was allowed");
+    assert.match(second.content[0].text, /already exist/);
+    assert.equal(readFileSync(core, "utf8"), "-- the user's real work\n", "their file was changed");
+  });
+});
+
+await verify("scaffold overwrites only when explicitly told to", async () => {
+  const { writeFileSync, readFileSync } = await import("node:fs");
+  await scaffoldInTempRoot(async (root, join) => {
+    const tool = byName.get("wow_addon_scaffold");
+    await tool.handler({ name: "Probe", write: true });
+    const core = join(root, "Probe", "Core.lua");
+    writeFileSync(core, "-- old\n");
+
+    const res = await tool.handler({ name: "Probe", write: true, overwrite: true });
+    assert.ok(!res.isError, res.content[0].text);
+    assert.notEqual(readFileSync(core, "utf8"), "-- old\n", "overwrite: true did not overwrite");
+  });
+});
+
+await verify("a refused scaffold leaves nothing half-written", async () => {
+  const { writeFileSync, readdirSync } = await import("node:fs");
+  await scaffoldInTempRoot(async (root, join) => {
+    const tool = byName.get("wow_addon_scaffold");
+    await tool.handler({ name: "Probe", write: true });
+    // Only one of the files exists. The refusal must still cover the whole set,
+    // not write the ones that are missing and stop at the one that is there.
+    const { rmSync } = await import("node:fs");
+    rmSync(join(root, "Probe", "Core.lua"));
+    writeFileSync(join(root, "Probe", "Probe.toc"), "## Interface: 1\n");
+    const before = readdirSync(join(root, "Probe")).sort();
+
+    const res = await tool.handler({ name: "Probe", write: true });
+    assert.ok(res.isError);
+    assert.deepEqual(readdirSync(join(root, "Probe")).sort(), before, "it wrote some files anyway");
+  });
+});
+
+await verify("a path-like addon name cannot escape the addon folder", async () => {
+  const { readdirSync } = await import("node:fs");
+  await scaffoldInTempRoot(async (root, join) => {
+    const { dirname } = await import("node:path");
+    const res = await byName.get("wow_addon_scaffold").handler({ name: "../Escaped", write: true });
+    assert.ok(!res.isError, res.content[0].text);
+    assert.ok(readdirSync(root).includes("Escaped"), "expected it inside the addon folder");
+    assert.ok(!readdirSync(dirname(root)).includes("Escaped"), "it wrote outside the addon folder");
+  });
+});
+
+console.log("\n== Per-client atlas ==");
+
+// Atlases differ between clients: on the data synced for this work, 3,666
+// exist only on WoW Forever and 720 only on retail. One shared file meant a
+// Forever question was answered from retail's list, recommending atlases that do
+// not exist there and hiding ones that do.
+
+await verify("each client's atlas has its own file, and retail keeps the original name", async () => {
+  const { DATA_PATHS } = await import("../dist/config.js");
+  const files = ["mainline", "classic", "vanilla", "forever"].map((k) => DATA_PATHS.atlasFor(k));
+  assert.equal(new Set(files).size, 4, "two clients would share a file");
+  assert.ok(DATA_PATHS.atlasFor("mainline").endsWith("atlas-index.json"),
+    "retail must keep its original name or existing synced data is orphaned");
+  assert.ok(DATA_PATHS.atlasFor("forever").endsWith("atlas-index-forever.json"));
+});
+
+await verify("every client's synced atlas file is git-ignored", async () => {
+  // These are Blizzard-derived and must never be committed. The ignore rule once
+  // named only the retail file, so a new client's atlas sat untracked and one
+  // broad `git add` away from being pushed.
+  const { DATA_PATHS, FLAVORS } = await import("../dist/config.js");
+  const { basename } = await import("node:path");
+  const rules = (await readFile(new URL("../.gitignore", import.meta.url), "utf8"))
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"))
+    .map((glob) => new RegExp("^" + glob.replace(/[.+^${}()|[\]\\]/g, (c) => "\\" + c).replace(/\*/g, "[^/]*") + "$"));
+
+  for (const key of new Set(Object.values(FLAVORS).map((f) => f.apiIndex))) {
+    const file = `data/${basename(DATA_PATHS.atlasFor(key))}`;
+    assert.ok(rules.some((r) => r.test(file)), `${file} is not covered by .gitignore`);
+  }
+});
+
+await verify("an atlas is never served for a different client", async () => {
+  const { loadAtlas } = await import("../dist/gamedata/files.js");
+  const { FLAVORS } = await import("../dist/config.js");
+  for (const flavor of Object.values(FLAVORS)) {
+    try {
+      const atlas = loadAtlas(flavor);
+      // A retail atlas synced before there was one per client has no flavor field.
+      const servedFor = atlas.raw.flavor ?? (flavor.apiIndex === "mainline" ? "mainline" : undefined);
+      assert.equal(servedFor, flavor.apiIndex, `${flavor.id} was answered from the ${servedFor} atlas`);
+    } catch (err) {
+      assert.match(err.message, /sync/i, `${flavor.id}: an error must say how to fix it`);
+    }
+  }
+});
+
+await verify("an unbuilt atlas says which client and the exact command", async () => {
+  const { loadAtlas } = await import("../dist/gamedata/files.js");
+  const { FLAVORS } = await import("../dist/config.js");
+  // Whichever clients are built on this machine, an unbuilt one must name itself.
+  for (const flavor of Object.values(FLAVORS)) {
+    try { loadAtlas(flavor); } catch (err) {
+      assert.ok(err.message.includes(flavor.label), `does not name ${flavor.label}`);
+      assert.ok(err.message.includes(flavor.apiIndex), "does not give the client to sync");
+      return;
+    }
+  }
+});
+
+await verify("every 'not synced' message tells a shell-less assistant what to do", async () => {
+  const { dataMissingMessage, RUN_IT_YOURSELF, FLAVORS } = await import("../dist/config.js");
+  const { loadAtlas } = await import("../dist/gamedata/files.js");
+  const { loadUiSource } = await import("../dist/uisource/index.js");
+
+  assert.ok(dataMissingMessage("x", "ui-source").includes(RUN_IT_YOURSELF));
+  // The atlas and UI source loaders build their own messages, so check them too.
+  for (const flavor of Object.values(FLAVORS)) {
+    for (const load of [loadAtlas, loadUiSource]) {
+      try { load(flavor); } catch (err) {
+        assert.ok(err.message.includes(RUN_IT_YOURSELF), `${flavor.id}: ${err.message.split("\n")[0]}`);
+      }
+    }
+  }
+});
+
+await verify("the atlas tool takes a flavor and ages its own data", async () => {
+  const tool = ALL_TOOLS.find((t) => t.name === "wow_atlas_search");
+  assert.ok("flavor" in tool.config.inputSchema, "no flavor argument");
+  assert.equal(tool.dataset, "atlas", "it must age the atlas, not the listfile");
+});
+
+await verify("the newest real wago build is picked per client", async () => {
+  const { pickLatestBuild, WAGO_PRODUCT } = await import("../dist/sync/wago.js");
+  const builds = {
+    wow_classic_beta: [
+      { version: "1.60.1.69876", created_at: "2026-09-16 18:23:04" },
+      { version: "1.60.1.69913", created_at: "2026-09-18 03:02:04" },
+      { version: "1.60.1.69893", created_at: "2026-09-16 23:14:03" },
+      // A background-download staging copy is newer but is not what players run.
+      { version: "1.60.1.69999", created_at: "2026-09-19 01:00:00", is_bgdl: true },
+    ],
+    wow: [{ version: "12.1.0.69814", created_at: "2026-09-12 20:00:00" }],
+  };
+  assert.equal(pickLatestBuild(builds, "wow_classic_beta"), "1.60.1.69913");
+  assert.equal(pickLatestBuild(builds, "wow"), "12.1.0.69814");
+  assert.equal(pickLatestBuild(builds, "wow_classic_era"), undefined, "no builds must not invent one");
+
+  const { FLAVORS } = await import("../dist/config.js");
+  for (const key of new Set(Object.values(FLAVORS).map((f) => f.apiIndex))) {
+    assert.ok(WAGO_PRODUCT[key], `${key} has no wago product, so its atlas can never be built`);
+  }
+});
+
+console.log("\n== MCP Registry metadata ==");
+
+// server.json is what `mcp-publisher publish` sends to the official registry, and
+// the registry rejects a package whose mcpName or version does not match it.
+// Both files are edited by hand at release time, so this is what notices one
+// being bumped without the other.
+await verify("server.json agrees with package.json", async () => {
+  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const server = JSON.parse(await readFile(new URL("../server.json", import.meta.url), "utf8"));
+
+  assert.equal(server.name, pkg.mcpName, "the registry name must equal package.json mcpName");
+  assert.match(server.name, /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/, "not a valid registry name");
+  assert.ok(server.name.startsWith("io.github.RdyGaming/"), "GitHub auth requires the io.github.<user>/ prefix");
+  assert.ok(server.description.length >= 1 && server.description.length <= 100,
+    `description is ${server.description.length} characters; the registry allows 100`);
+
+  assert.equal(server.version, pkg.version, "bump server.json with package.json");
+  const npm = server.packages.find((p) => p.registryType === "npm");
+  assert.ok(npm, "no npm package entry");
+  assert.equal(npm.identifier, pkg.name);
+  assert.equal(npm.version, pkg.version, "the registry rejects a package version that is not published");
+  assert.match(npm.version, /^\d+\.\d+\.\d+/, "must be an exact version, not a range or 'latest'");
+  assert.equal(npm.transport.type, "stdio");
+  assert.equal(server.repository.url.replace(/\.git$/, ""), pkg.repository.url.replace(/^git\+/, "").replace(/\.git$/, ""));
+});
+
+await verify("server.json declares exactly the environment variables the code reads", async () => {
+  const server = JSON.parse(await readFile(new URL("../server.json", import.meta.url), "utf8"));
+  const declared = new Set(server.packages[0].environmentVariables.map((v) => v.name));
+
+  const used = new Set();
+  const walk = async (dir) => {
+    for (const e of await readdir(dir, { withFileTypes: true })) {
+      const next = new URL(`${e.name}${e.isDirectory() ? "/" : ""}`, dir);
+      if (e.isDirectory()) await walk(next);
+      else if (e.name.endsWith(".js")) {
+        const src = await readFile(next, "utf8");
+        for (const m of src.matchAll(/process\.env\.(WOW_[A-Z_]+)/g)) used.add(m[1]);
+      }
+    }
+  };
+  await walk(new URL("../dist/", import.meta.url));
+
+  const undeclared = [...used].filter((n) => !declared.has(n));
+  const unused = [...declared].filter((n) => !used.has(n));
+  assert.deepEqual(undeclared, [], `read by the code but missing from server.json: ${undeclared}`);
+  assert.deepEqual(unused, [], `declared in server.json but never read: ${unused}`);
+
+  const choices = server.packages[0].environmentVariables.find((v) => v.name === "WOW_DEFAULT_FLAVOR").choices;
+  assert.deepEqual([...choices].sort(), Object.keys(FLAVORS).sort(), "flavor choices drifted from config");
 });
 
 console.log("\n== Local install ==");
