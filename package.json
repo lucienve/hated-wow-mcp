@@ -69,7 +69,7 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "tsx": "^4.23.13",
