@@ -42,7 +42,7 @@ Requires **Node 20+**. Nothing to clone, nothing to build.
    one. Verify with `claude mcp list`.
 
 2. **Configure Addon Rules:**
-   Copy the guidelines from `plugins/wow/rules/AGENTS.md` into your addon repository's `CLAUDE.md` (or `~/.claude/CLAUDE.md` globally) so Claude Code automatically verifies APIs, avoids combat taint, and runs validators before modifying files.
+   Copy the guidelines from `plugins/wow/rules/wow_addon_development.md` into your addon repository's `CLAUDE.md` (or `~/.claude/CLAUDE.md` globally) so Claude Code automatically verifies APIs, avoids combat taint, and runs validators before modifying files.
 
 ### Claude Desktop
 
@@ -78,7 +78,7 @@ Requires **Node 20+**. Nothing to clone, nothing to build.
    the window is not enough, and the config is only read at startup.
 
 2. **Configure Addon Rules:**
-   Paste the instructions from `plugins/wow/rules/AGENTS.md` into your Claude Desktop **Project Instructions** or **Custom Instructions**.
+   Paste the instructions from `plugins/wow/rules/wow_addon_development.md` into your Claude Desktop **Project Instructions** or **Custom Instructions**.
 
 ### Google Antigravity (IDE, Desktop, CLI)
 
@@ -105,7 +105,7 @@ Alternatively, register the path in your `plugins.json` (workspace `.agents/plug
 
 The plugin bundles:
 * **Automatic MCP Registration:** Launches `npx -y hated-wow-mcp` with zero manual configuration under the server name `wow`.
-* **Addon Rules (`rules/AGENTS.md`):** Enforces zero-guesswork API grounding, taint avoidance, safe hooking, and pre-release validation gates.
+* **Addon Rules (`rules/wow_addon_development.md`):** Conditionally loaded on-demand rules enforcing zero-guesswork API grounding, taint avoidance, safe hooking, and pre-release validation gates.
 * **3 Specialized Skills (Loaded On-Demand):**
   * `wow-addon-feature`: FrameXML UI templates, mixins, Settings API, texture atlases, and cross-flavor API implementation.
   * `wow-addon-troubleshoot`: Lua runtime error stack trace analysis, execution and variable taint diagnosis ("Interface action failed"), combat lockdown safety (`InCombatLockdown()`), secret arguments, and patch deprecation repairs.
@@ -136,14 +136,14 @@ If you only want to register the raw MCP server tools without the rules or skill
 1. **Add the MCP Server:**
    Add the `mcpServers` block above to `.cursor/mcp.json` in your addon project, or globally in `~/.cursor/mcp.json`.
 2. **Configure Addon Rules:**
-   Copy `plugins/wow/rules/AGENTS.md` into your project root as `.cursorrules` or create `.cursor/rules/wow.mdc`.
+   Copy `plugins/wow/rules/wow_addon_development.md` into your project root as `.cursorrules` or create `.cursor/rules/wow.mdc`.
 
 ### Cline (VS Code)
 
 1. **Add the MCP Server:**
    Open Cline settings > **MCP Servers** (or edit `cline_mcp_settings.json`), and add the `wow` stdio entry (`command: "npx"`, `args: ["-y", "hated-wow-mcp"]`).
 2. **Configure Addon Rules:**
-   Copy `plugins/wow/rules/AGENTS.md` into `.clinerules` at the root of your addon workspace.
+   Copy `plugins/wow/rules/wow_addon_development.md` into `.clinerules` at the root of your addon workspace.
 
 ### Other clients
 

@@ -35,7 +35,7 @@ In this repository, it also bundles an Antigravity plugin with rules and 3 speci
 
 - **Antigravity Plugin (`plugins/wow`):**
   - Registered MCP server configuration in `plugins/wow/mcp_config.json`.
-  - Addon development rules in `plugins/wow/rules/AGENTS.md`.
+  - Conditional addon development rules in `plugins/wow/rules/wow_addon_development.md` using `trigger: model_decision` frontmatter for progressive disclosure (preventing rule pollution in non-WoW projects).
   - Three on-demand skills: `wow-addon-feature`, `wow-addon-troubleshoot`, `wow-addon-scaffold`.
 - **Dependency Tracking:**
   - Modernized dependency versions (`fast-xml-parser` v5, `zod` v4, `@types/node` v26, `typescript` v7, `tsx` v4).

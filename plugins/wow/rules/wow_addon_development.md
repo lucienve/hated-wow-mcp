@@ -1,3 +1,10 @@
+---
+trigger: model_decision
+description:
+  Use this rule when developing, maintaining, or modifying World of Warcraft
+  addons, FrameXML UI, or WoW Lua code.
+---
+
 # World of Warcraft Addon Development Rules
 
 When developing, maintaining, or modifying World of Warcraft addons, you must adhere to the following principles:
