@@ -2,18 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RdyGaming/hated-wow-mcp",
   "title": "Hated WoW MCP",
-  "description": "MCP server for WoW addons: Lua API, Blizzard UI source, CVars, art lookup, linting, scaffolding.",
+  "description": "MCP server for WoW addons: Lua API, UI source, CVars, art, linting, plus model export to glTF/OBJ.",
   "repository": {
     "url": "https://github.com/RdyGaming/hated-wow-mcp",
     "source": "github"
   },
   "websiteUrl": "https://github.com/RdyGaming/hated-wow-mcp#readme",
-  "version": "0.6.1",
+  "version": "0.8.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "hated-wow-mcp",
-      "version": "0.6.1",
+      "version": "0.8.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
