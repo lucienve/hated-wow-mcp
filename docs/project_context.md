@@ -11,13 +11,16 @@ linting, XML/TOC validation, addon scaffolding, and headless export of
 creatures, NPCs, props, buildings, and zone terrain from a local install to
 glTF/OBJ with PNG textures.
 
-In this repository, it also bundles an Antigravity plugin with rules and 3
+In this repository, it also bundles an Antigravity plugin with rules and 4
 specialized skills in `plugins/wow`.
 
 ## Upstream Synchronization
 
-- **Upstream Repository:** [RdyGaming/hated-wow-mcp](https://github.com/RdyGaming/hated-wow-mcp)
-- **Synchronized Release:** `v0.8.0` (commit `85fbc1249b6b7a701b2289c033878b668f44ff5c`, upstream tag `v0.8.0` at `b0893aac3bd42d82ee85733677fec974fb696f71`)
+- **Upstream Repository:**
+  [RdyGaming/hated-wow-mcp](https://github.com/RdyGaming/hated-wow-mcp)
+- **Synchronized Release:** `v0.8.0` (commit
+  `85fbc1249b6b7a701b2289c033878b668f44ff5c`, upstream tag `v0.8.0` at
+  `b0893aac3bd42d82ee85733677fec974fb696f71`)
 
 ### Merged Upstream Releases & Milestones
 
@@ -53,8 +56,8 @@ specialized skills in `plugins/wow`.
    - Added 7 export and lookup tools: `wow_model_search`, `wow_model_export`,
      `wow_creature_search`, `wow_creature_export`, `wow_texture_export`,
      `wow_map_search`, and `wow_map_export`.
-   - Added `sync-model-data` (`src/sync/model-data.ts`) to fetch public WoWDBDefs
-     table column definitions and TACTKeys encryption keys.
+   - Added `sync-model-data` (`src/sync/model-data.ts`) to fetch public
+     WoWDBDefs table column definitions and TACTKeys encryption keys.
    - Added `scripts/copy-lib.mjs` to copy CommonJS exporter modules and licenses
      to `dist/wowexport/`.
 
@@ -69,12 +72,12 @@ specialized skills in `plugins/wow`.
 
 - **Antigravity Plugin (`plugins/wow`):**
   - Registered MCP server configuration in `plugins/wow/mcp_config.json`.
-  - Conditional addon development rules in
+  - Conditional addon development and 3D asset export rules in
     `plugins/wow/rules/wow_addon_development.md` using `trigger: model_decision`
-    frontmatter for progressive disclosure (preventing rule pollution in
-    non-WoW projects).
-  - Three on-demand skills: `wow-addon-feature`, `wow-addon-troubleshoot`,
-    `wow-addon-scaffold`.
+    frontmatter for progressive disclosure (preventing rule pollution in non-WoW
+    projects).
+  - Four on-demand skills: `wow-addon-feature`, `wow-addon-troubleshoot`,
+    `wow-addon-scaffold`, and `wow-model-export`.
 - **Dependency Tracking:**
   - Modernized dependency versions (`fast-xml-parser` v5, `zod` v4,
     `@types/node` v26, `typescript` v7, `tsx` v4, `express` v5).

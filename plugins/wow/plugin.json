@@ -1,7 +1,7 @@
 {
   "name": "wow",
-  "version": "1.0.0",
-  "description": "Expert World of Warcraft addon development plugin providing specialized skills for feature implementation, taint & runtime error troubleshooting, and scaffolding/audit gates using the wow MCP server.",
+  "version": "0.8.0",
+  "description": "Expert World of Warcraft addon development and asset extraction plugin providing specialized skills for feature implementation, taint & runtime error troubleshooting, scaffolding/audit gates, and headless 3D model/creature/texture/terrain export using the wow MCP server.",
   "author": {
     "name": "Antigravity"
   },
@@ -13,6 +13,11 @@
     "lua",
     "framexml",
     "taint",
-    "mcp"
+    "mcp",
+    "models",
+    "gltf",
+    "creatures",
+    "terrain",
+    "blp"
   ]
 }

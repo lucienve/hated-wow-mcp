@@ -85,7 +85,10 @@ Requires **Node 20+**. Nothing to clone, nothing to build.
 
 ### Google Antigravity (IDE, Desktop, CLI)
 
-Antigravity features native plugin support. You can install the bundled `wow` plugin, which automatically registers the MCP server, enforces World of Warcraft development rules, and adds three specialized on-demand skills.
+Antigravity features native plugin support. You can install the bundled `wow`
+plugin, which automatically registers the MCP server, enforces World of
+Warcraft development and asset extraction rules, and adds four specialized
+on-demand skills.
 
 #### 1. Install the Plugin (Recommended)
 
@@ -96,7 +99,8 @@ Copy the `plugins/wow` folder into your Antigravity plugins directory:
 | **Addon project** | `<your-addon-repo>/.agents/plugins/wow` |
 | **Global (all projects)** | `~/.gemini/config/plugins/wow` |
 
-Alternatively, register the path in your `plugins.json` (workspace `.agents/plugins.json` or global `~/.gemini/config/plugins.json`):
+Alternatively, register the path in your `plugins.json` (workspace
+`.agents/plugins.json` or global `~/.gemini/config/plugins.json`):
 
 ```json
 {
@@ -107,18 +111,35 @@ Alternatively, register the path in your `plugins.json` (workspace `.agents/plug
 ```
 
 The plugin bundles:
-* **Automatic MCP Registration:** Launches `npx -y hated-wow-mcp` with zero manual configuration under the server name `wow`.
-* **Addon Rules (`rules/wow_addon_development.md`):** Conditionally loaded on-demand rules enforcing zero-guesswork API grounding, taint avoidance, safe hooking, and pre-release validation gates.
-* **3 Specialized Skills (Loaded On-Demand):**
-  * `wow-addon-feature`: FrameXML UI templates, mixins, Settings API, texture atlases, and cross-flavor API implementation.
-  * `wow-addon-troubleshoot`: Lua runtime error stack trace analysis, execution and variable taint diagnosis ("Interface action failed"), combat lockdown safety (`InCombatLockdown()`), secret arguments, and patch deprecation repairs.
-  * `wow-addon-scaffold`: Scaffolding new addons, multi-flavor `.toc` manifests, lifecycle architecture (`ADDON_LOADED`, `PLAYER_LOGIN`), SavedVariables, and pre-release quality audits.
 
-In the Antigravity UI, open **Skills & Customizations** in the sidebar to view active tools and skills. You can also reference the server directly in chat using `@wow`.
+* **Automatic MCP Registration:** Launches `npx -y hated-wow-mcp` with zero
+  manual configuration under the server name `wow`.
+* **Addon Rules (`rules/wow_addon_development.md`):** Conditionally loaded
+  on-demand rules enforcing zero-guesswork API grounding, taint avoidance, safe
+  hooking, pre-release validation gates, and 3D asset export constraints.
+* **4 Specialized Skills (Loaded On-Demand):**
+  * `wow-addon-feature`: FrameXML UI templates, mixins, Settings API, texture
+    atlases, and cross-flavor API implementation.
+  * `wow-addon-troubleshoot`: Lua runtime error stack trace analysis, execution
+    and variable taint diagnosis ("Interface action failed"), combat lockdown
+    safety (`InCombatLockdown()`), secret arguments/returns, and patch
+    deprecation repairs.
+  * `wow-addon-scaffold`: Scaffolding new addons, multi-flavor `.toc` manifests,
+    lifecycle architecture (`ADDON_LOADED`, `PLAYER_LOGIN`), SavedVariables, and
+    pre-release quality audits.
+  * `wow-model-export`: Headless export of M2 models with animations, WMO
+    buildings, BLP textures to PNG, armored humanoid NPCs with gear attachments,
+    and ADT zone terrain tiles.
+
+In the Antigravity UI, open **Skills & Customizations** in the sidebar to view
+active tools and skills. You can also reference the server directly in chat
+using `@wow`.
 
 #### 2. Standalone MCP Server (Without Plugin)
 
-If you only want to register the raw MCP server tools without the rules or skills, add the `mcpServers` block to `~/.gemini/config/mcp_config.json` (global) or `.agents/mcp_config.json` (project):
+If you only want to register the raw MCP server tools without the rules or
+skills, add the `mcpServers` block to `~/.gemini/config/mcp_config.json`
+(global) or `.agents/mcp_config.json` (project):
 
 ```json
 {
