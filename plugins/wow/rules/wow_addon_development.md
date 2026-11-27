@@ -2,15 +2,16 @@
 trigger: model_decision
 description:
   Use this rule when developing, maintaining, or modifying World of Warcraft
-  addons, FrameXML UI, or WoW Lua code, or when searching and exporting game
-  models, creatures, textures, and terrain.
+  addons, FrameXML UI, or WoW Lua code, when searching local item and hotfix
+  caches (DBCache.bin), or when searching and exporting game models, creatures,
+  textures, and terrain.
 ---
 
 # World of Warcraft Addon Development & Asset Extraction Rules
 
-When developing, maintaining, or modifying World of Warcraft addons, or when
-extracting 3D assets from game files, you must adhere to the following
-principles:
+When developing, maintaining, or modifying World of Warcraft addons, querying
+local item caches, or extracting 3D assets from game files, you must adhere to
+the following principles:
 
 ## 1. Zero-Guesswork API & CVar Grounding
 
@@ -73,28 +74,43 @@ principles:
 - **Reverse-Verify Numeric FileDataIDs:** When using `wow_icon_search` or
   numeric IDs, always run a reverse verification check via `wow_file_search` on
   the numeric ID to confirm it resolves back to the expected texture name.
-- **Mandatory Inline Comments:** Whenever placing a raw numeric `FileDataID` in
-  Lua or `.toc` files, always include an inline comment with the canonical
-  texture name (e.g.,
-  `b.Icon:SetTexture(135769) -- FileDataID: spell_chargepositive`).
+- **Mandatory Texture Comments:** Whenever placing a raw numeric `FileDataID`:
+  - In Lua files, add an inline `--` comment with the canonical texture name
+    (e.g., `b.Icon:SetTexture(135769) -- FileDataID: spell_chargepositive`).
+  - In `.toc` files, place a standalone `#` comment line immediately preceding
+    `## IconTexture:` (never append trailing `#` comments on a `##` directive
+    line, because the client and `wow_toc_validate` treat everything after `:`
+    as the literal directive value).
 - **Texture Previews:** When an asset's visual appearance needs inspection,
   decode the `.blp` texture to `.png` using `wow_texture_export`.
 
-## 5. Headless 3D Model, Creature & Terrain Export
+## 5. Local CASC Exports & Item Hotfix Cache Lookups
 
 - **Verify Prerequisites:** Ensure local game storage and data sets are ready.
-  Check `wow_install_info` and `wow_data_status`. Model, creature, texture, and
-  terrain export tools require both `sync game-data` and `sync model-data`.
+  Check `wow_install_info` and `wow_data_status`. Local model, creature,
+  texture, terrain, and item search tools require both `sync game-data` and
+  `sync model-data` (which includes `Item.dbd` and `ItemSparse.dbd` in v0.9.0+).
+  The first tool call that opens CASC storage takes ~30–40 seconds.
+- **Item & Hotfix Cache Lookups (`wow_item_search`):**
+  - `wow_item_search` queries local CASC `Item` and `ItemSparse` DB2 tables
+    overlaid with `Cache/ADB/<locale>/DBCache.bin` (essential on WoW Forever,
+    where new items exist only in the hotfix cache).
+  - Use `newOnly: true` for brand-new post-build items (`new`) and
+    `changedOnly: true` for all hotfix-added or modified items (`new`/`hotfix`).
+  - Pass an explicit destination path for `outputFile` when exporting JSON
+    (`readOnlyHint: false`).
+  - **Limitation:** `wow_item_search` cannot report drop or loot sources
+    (server-side data).
 - **Search Before Exporting:** Always resolve models via `wow_model_search`,
   creatures or NPCs via `wow_creature_search`, and map IDs/tiles via
   `wow_map_search` before invoking export tools.
 - **Confined Output Directories:** Always pass an explicit, dedicated
   `outputDir`. Exports preserve the game's internal directory structures so
   textures resolve relative to models in Blender.
-- **Reference Specialized Skill:** Activate the `wow-model-export` skill for
-  detailed 3D export workflows (glTF animations, NPC armor geosets, attached
+- **Reference Specialized Skill:** Activate `wow-model-export` for detailed 3D
+  export workflows (glTF animations, NPC armor geosets, attached
   helm/shoulder/weapon models with rest-pose bone coordinates, and ADT terrain
-  tile exports).
+  tile exports) and `wow-addon-feature` for `wow_item_search` workflows.
 
 ## 6. Mandatory Validation Gate
 

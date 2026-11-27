@@ -63,9 +63,9 @@ When presented with a Lua error or stack trace:
 
 - **`attempt to index field '...' (a nil value)`**:
   - Many modern APIs return a single structured table object instead of multiple
-    unpacked values (e.g., `C_Item.GetItemInfo`,
-    `C_Container.GetContainerItemInfo`, `C_Spell.GetSpellInfo`,
-    `C_Spell.GetSpellCooldown`, `C_UnitAuras.GetAuraDataByIndex`).
+    unpacked values (e.g., `C_Container.GetContainerItemInfo`,
+    `C_Spell.GetSpellInfo`, `C_Spell.GetSpellCooldown`,
+    `C_UnitAuras.GetAuraDataByIndex`).
   - Functions like `GetMouseFocus` were replaced by `GetMouseFoci` (returning an
     array where `[1]` is top-level).
   - Inspect return structures using `wow_api_search` and `wow_api_type_search`:
@@ -73,6 +73,14 @@ When presented with a Lua error or stack trace:
     ```json
     { "query": "C_Spell.GetSpellInfo", "flavor": "mainline" }
     ```
+
+- **`C_Item.GetItemInfo` returns `nil` (or missing WoW Forever items)**:
+  - `C_Item.GetItemInfo` still returns an 18-value multi-return (not a table),
+    but returns `nil` for items not yet cached by the client. Handle `nil`
+    returns gracefully and retry on `GET_ITEM_INFO_RECEIVED` (payload:
+    `itemID, success`).
+  - On WoW Forever, verify custom or post-build item IDs against the local
+    hotfix cache (`DBCache.bin`) using `wow_item_search`.
 
 - **`script ran too long`**:
   - Indicates an infinite loop, recursive event trigger, or unthrottled

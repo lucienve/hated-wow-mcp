@@ -2,14 +2,14 @@
 
 ## Overview
 
-`hated-wow-mcp` is an MCP (Model Context Protocol) server providing 27 tools for
+`hated-wow-mcp` is an MCP (Model Context Protocol) server providing 28 tools for
 World of Warcraft addon development and asset extraction. It supports Retail
 (Midnight/The War Within), Classic (Mists/Cata/Wrath/TBC), Classic Era
 (Vanilla), and WoW Forever (Camelot). It supplies in-game Lua API signatures,
 Blizzard's UI FrameXML and Lua source, CVars, FileDataIDs, texture atlases, Lua
-linting, XML/TOC validation, addon scaffolding, and headless export of
-creatures, NPCs, props, buildings, and zone terrain from a local install to
-glTF/OBJ with PNG textures.
+linting, XML/TOC validation, addon scaffolding, local item and hotfix cache
+(`DBCache.bin`) search, and headless export of creatures, NPCs, props,
+buildings, and zone terrain from a local install to glTF/OBJ with PNG textures.
 
 In this repository, it also bundles an Antigravity plugin with rules and 4
 specialized skills in `plugins/wow`.
@@ -18,9 +18,8 @@ specialized skills in `plugins/wow`.
 
 - **Upstream Repository:**
   [RdyGaming/hated-wow-mcp](https://github.com/RdyGaming/hated-wow-mcp)
-- **Synchronized Release:** `v0.8.0` (commit
-  `85fbc1249b6b7a701b2289c033878b668f44ff5c`, upstream tag `v0.8.0` at
-  `b0893aac3bd42d82ee85733677fec974fb696f71`)
+- **Synchronized Release:** `v0.9.0` (commit
+  `41d7579a4eea3a8e566c707226ca00bdd6e2bcee`)
 
 ### Merged Upstream Releases & Milestones
 
@@ -67,6 +66,23 @@ specialized skills in `plugins/wow`.
    - Added support for released WoW Forever client under `_forever_` / product
      `wowf` (replacing beta `_classic_beta_` / `wow_classic_beta`), with full
      global, event, and CVar API lists.
+
+6. **v0.8.1 (Midnight 12.1.5 Interface & CASC Journal Index Fix):**
+   - Bumped Retail (`mainline`) Interface version from `120100` to `120105` for
+     patch 12.1.5.
+   - Updated `CASCLocal.loadIndexes` to load only the newest `.idx` journal file
+     per 2-hex-digit bucket after patches.
+   - Synced Retail and WoW Forever API indexes.
+
+7. **v0.9.0 (Local Item Search & Client Hotfix Cache Reader):**
+   - Added 28th tool `wow_item_search` (`src/tools/items.tools.ts`), combining
+     CASC `Item`/`ItemSparse` DB2 tables with `Cache/ADB/<locale>/DBCache.bin`
+     (`HotfixReader.js`, XFTH v9) so post-build and WoW Forever custom items
+     are searchable.
+   - Supports `newOnly` (`new`) vs. `changedOnly` (`hotfix`) filtering,
+     quality/binding/level/slot filters, and optional JSON export via
+     `outputFile` (`readOnlyHint: false`).
+   - Added `Item` and `ItemSparse` to `DBD_TABLES` in `src/sync/model-data.ts`.
 
 ## Local Customizations
 

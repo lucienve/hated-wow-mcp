@@ -2,17 +2,19 @@
 name: wow-addon-feature
 description:
   Implement new features, UI components, Blizzard FrameXML templates, mixins,
-  Settings API integration, texture atlases, icons, and cross-flavor WoW APIs
-  using the wow MCP server. Trigger whenever adding new functionality, building
-  frames/dialogs/widgets, configuring addon options, referencing art assets, or
-  writing multi-flavor Lua code for World of Warcraft addons.
+  Settings API integration, texture atlases, icons, local item/hotfix cache
+  lookups (wow_item_search), and cross-flavor WoW APIs using the wow MCP
+  server. Trigger whenever adding new functionality, building
+  frames/dialogs/widgets, configuring addon options, referencing art assets,
+  looking up items or DBCache.bin hotfixes, or writing multi-flavor Lua code
+  for World of Warcraft addons.
 ---
 
 # WoW Addon Feature Development Skill
 
 This skill guides an agent through implementing new features, frames, widgets,
-settings panels, and API integrations for World of Warcraft addons using the
-**wow** MCP server.
+settings panels, item lookups, and API integrations for World of Warcraft
+addons using the **wow** MCP server.
 
 ---
 
@@ -26,6 +28,9 @@ Activate this skill whenever the task involves:
 - Creating or updating configuration panels using the modern Settings API.
 - Finding and referencing game assets (icons, texture atlases, FileDataIDs) or
   exporting texture previews.
+- Querying local item databases and client hotfix caches (`DBCache.bin`) via
+  `wow_item_search` for item-aware addons (loot/gear trackers, BiS lists, or
+  WoW Forever custom items).
 - Writing cross-client compatibility logic across Retail (Midnight / The War
   Within), Classic progression, Classic Era, and WoW Forever.
 
@@ -40,7 +45,7 @@ hallucination:
 flowchart LR
     A["1. API & CVar Grounding"] --> B["2. UI Template & Mixin Discovery"]
     B --> C["3. Settings & Options Panel"]
-    C --> D["4. Texture & Asset Resolution"]
+    C --> D["4. Texture, Asset & Item Resolution"]
     D --> E["5. Cross-Flavor Compatibility"]
     E --> F["6. Feature Verification Gate"]
 ```
@@ -60,6 +65,9 @@ API calls from memory.**
    { "query": "C_Container.GetContainerItemInfo", "flavor": "mainline" }
    ```
 
+   - Optional `namespace` filtering restricts hits (e.g., `"C_Spell"`), and
+     queries support camel-hump abbreviations (e.g., `"GIIBID"` finds
+     `GetItemInfoByID`).
    - Pay special attention to return types: many APIs return a single structured
      table (e.g., `ContainerItemInfo`, `SpellInfo`) rather than legacy
      multi-returns.
@@ -76,7 +84,8 @@ API calls from memory.**
    ```
 
 3. **Verify Enums and Constants:** Call `wow_api_type_search` for `Enum.*` and
-   `Constants.*` tables:
+   `Constants.*` tables (optionally pass `kind`: `"Enumeration"`,
+   `"Structure"`, `"Constants"`, or `"CallbackType"`):
 
    ```json
    { "query": "ItemQuality", "flavor": "mainline" }
@@ -120,7 +129,8 @@ code.
    { "query": "ScrollBox", "flavor": "mainline" }
    ```
 
-4. **Inspect Real Shipped FrameXML Implementations:** Use `wow_ui_grep` and
+4. **Inspect Real Shipped FrameXML Implementations:** Use `wow_ui_grep` (supports
+   `pkg`, `pathContains`, `context`, and `ignoreCase` filters) and
    `wow_ui_read_file` to see how Blizzard structures similar features:
 
    ```json
@@ -189,7 +199,7 @@ end
 
 ---
 
-### Step 4: Texture and Asset Resolution
+### Step 4: Texture, Asset & Item Resolution
 
 Never guess texture paths or invent hardcoded file strings.
 
@@ -220,8 +230,9 @@ Never guess texture paths or invent hardcoded file strings.
    { "query": "133850" }
    ```
 
-   In Lua or `.toc` files, always include an inline comment documenting the
-   texture name:
+   In Lua files, add an inline `--` comment documenting the texture name; in
+   `.toc` files, place a standalone `#` comment line immediately preceding
+   `## IconTexture:` (never on the `##` directive line itself):
 
    ```lua
    texture:SetTexture(133850) -- FileDataID: inv_misc_gem_bloodgem_01
@@ -232,6 +243,44 @@ Never guess texture paths or invent hardcoded file strings.
      `.png` with `wow_texture_export`.
    - If the task requires full 3D models (creatures, props, buildings, or
      terrain), activate the `wow-model-export` skill.
+
+4. **Item & Hotfix Cache Lookups (`wow_item_search`):**
+   Use `wow_item_search` to look up items in local CASC `Item` and `ItemSparse`
+   DB2 tables overlaid with the client's hotfix cache
+   (`Cache/ADB/<locale>/DBCache.bin`). On WoW Forever, every newly added item
+   lives exclusively in `DBCache.bin`.
+
+   ```json
+   {
+     "query": "Ephemeral",
+     "quality": "rare",
+     "newOnly": true,
+     "flavor": "forever"
+   }
+   ```
+
+   - **Query Parameters:** `query` (optional name fragment or exact numeric item
+     ID; empty matches all items), `quality` (`"poor"`, `"common"`,
+     `"uncommon"`, `"rare"`, `"epic"`, `"legendary"`, `"artifact"`,
+     `"heirloom"`), `binding` (`"none"`, `"bop"`, `"boe"`, `"use"`, `"quest"`),
+     `minLevel` / `maxLevel` (required level bounds), `slot` (inventory type
+     integer, e.g., `1` head, `2` neck, `16` back, `17` two-hand, `28` relic),
+     `limit` (`1`–`500`, default `50`), and `flavor` (`"mainline"`, `"forever"`,
+     `"classic"`, `"vanilla"`).
+   - **Hotfix Filters:** `newOnly: true` returns only items added after the
+     build shipped (in `DBCache.bin`, absent from shipped CASC DB2 files,
+     tagged `new`); `changedOnly: true` returns all items added or modified by
+     the hotfix cache (`new` or `hotfix`).
+   - **JSON Export (`outputFile`):** Passing `outputFile` writes every matching
+     record (ignoring `limit`) as JSON (`id`, `name`, `quality`, `itemLevel`,
+     `requiredLevel`, `binding`, `inventoryType`, `classID`, `subclassID`,
+     `allowableClass`, `itemSet`, `hotfix`, `isNew`). Because it writes to
+     disk, `wow_item_search` sets `readOnlyHint: false` — always pass an
+     explicit destination path.
+   - **Prerequisites & Limits:** Requires `sync game-data` and `sync model-data`
+     (including `Item.dbd` and `ItemSparse.dbd` added in v0.9.0) plus a local
+     WoW install; the first CASC open takes ~40 seconds. Cannot report drop or
+     loot sources (those live server-side).
 
 ---
 
@@ -256,13 +305,21 @@ Era, WoW Forever):
                        or GetContainerNumSlots
    ```
 
-   When project branching is necessary, use `WOW_PROJECT_ID`:
+   When project branching is necessary, use `WOW_PROJECT_ID` (guarding optional
+   client constants against `nil`, since `WOW_PROJECT_CAMELOT` is only defined
+   when WoW Forever's `camelot` game type loads):
 
    ```lua
    local isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
    local isVanilla = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
-   local isMists = (WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC)
+   local isMists = (WOW_PROJECT_MISTS_CLASSIC ~= nil
+       and WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC)
+   local isForever = (WOW_PROJECT_CAMELOT ~= nil
+       and WOW_PROJECT_ID == WOW_PROJECT_CAMELOT)
    ```
+
+   For `.toc` manifests targeting WoW Forever, use `[AllowLoadGameType camelot]`
+   rather than a filename suffix.
 
 ---
 

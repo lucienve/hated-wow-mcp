@@ -4,8 +4,9 @@ description:
   Scaffold new World of Warcraft addons, structure multi-client TOC manifests,
   design lifecycle architecture and SavedVariables, and perform release audits
   using the wow MCP server. Trigger whenever creating an addon from scratch,
-  configuring .toc files across flavors (Retail, Classic, Era), setting up addon
-  initialization/SavedVariables, or running full pre-release quality audits.
+  configuring .toc files across flavors (Retail, Classic, Era, WoW Forever),
+  setting up addon initialization/SavedVariables, or running full pre-release
+  quality audits.
 ---
 
 # WoW Addon Scaffolding, Architecture & Audit Skill
@@ -95,15 +96,15 @@ flowchart TD
 World of Warcraft supports flavor-specific `.toc` suffixes to allow one addon
 codebase to support Retail, Classic progression, and Classic Era:
 
-| Flavor         | Client Name               | TOC Suffix                        | Interface Version |
-| :------------- | :------------------------ | :-------------------------------- | :---------------- |
-| **`mainline`** | Retail (Midnight)         | `_Mainline.toc` (alt `_Standard`) | `120100`          |
-| **`mists`**    | Mists of Pandaria Classic | `_Mists.toc` (alt `_Classic`)     | `50504`           |
-| **`cata`**     | Cataclysm Classic         | `_Cata.toc` (alt `_Classic`)      | `40402`           |
-| **`wrath`**    | Wrath Classic             | `_Wrath.toc` (alt `-WOTLKC`)      | `38002`           |
-| **`tbc`**      | Burning Crusade Classic   | `_TBC.toc` (alt `-BCC`)           | `20506`           |
-| **`vanilla`**  | Classic Era / Anniversary | `_Vanilla.toc` (alt `_Classic`)   | `11509`           |
-| **`forever`**  | WoW Forever (Camelot)     | _(none / unsuffixed .toc)_        | `16001`           |
+| Flavor         | Client Name                    | TOC Suffix                               | Interface Version |
+| :------------- | :----------------------------- | :--------------------------------------- | :---------------- |
+| **`mainline`** | Retail (Midnight)              | `_Mainline.toc` (alt `_Standard`)        | `120105`          |
+| **`mists`**    | Mists of Pandaria Classic      | `_Mists.toc` (alt `_Classic`)            | `50504`           |
+| **`cata`**     | Cataclysm Classic              | `_Cata.toc` (alt `_Classic`)             | `40402`           |
+| **`wrath`**    | Wrath Classic / Titan Reforged | `_Wrath.toc` (alt `_Classic`, `-WOTLKC`) | `38002`           |
+| **`tbc`**      | Burning Crusade Classic        | `_TBC.toc` (alt `_Classic`, `-BCC`)      | `20506`           |
+| **`vanilla`**  | Classic Era / Anniversary      | `_Vanilla.toc` (alt `_Classic`)          | `11509`           |
+| **`forever`**  | WoW Forever (Camelot)          | _(none / unsuffixed .toc)_               | `16001`           |
 
 > [!NOTE] WoW Forever (`forever`) runs on the Retail codebase under Interface
 > `16001` with internal game type `camelot`. It uses an unsuffixed `.toc`
@@ -112,13 +113,14 @@ codebase to support Retail, Classic progression, and Classic Era:
 #### Recommended TOC Header Structure
 
 ```toc
-## Interface: 120100
+## Interface: 120105
 ## Title: MyAddon
 ## Notes: A clean, reliable World of Warcraft addon.
 ## Author: YourName
 ## Version: 1.0.0
 ## SavedVariables: MyAddonDB
 ## SavedVariablesPerCharacter: MyAddonCharDB
+# FileDataID: inv_misc_gem_bloodgem_01
 ## IconTexture: 133850
 ## DefaultState: enabled
 

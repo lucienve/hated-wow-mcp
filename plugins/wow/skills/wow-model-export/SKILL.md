@@ -63,18 +63,22 @@ requires synced metadata tables:
    {}
    ```
 
-   All 7 model and terrain export tools require two prerequisites:
+   All 8 local game-file tools (the 7 model, creature, texture, and terrain
+   tools plus `wow_item_search`, covered in `wow-addon-feature`) share two
+   prerequisites:
    - **`sync game-data`**: Fetches the community FileDataID listfile
      (`community-listfile.csv`).
    - **`sync model-data`**: Fetches WoWDBDefs column definitions (`.dbd`) and
-     TACTKeys decryption keys. Data synced prior to server version 0.8.0 must
-     re-run `sync model-data` to acquire NPC equipment tables
-     (`NPCModelItemSlotDisplayInfo.dbd`).
+     TACTKeys decryption keys. Installs synced prior to server version 0.9.0
+     must re-run `sync model-data` for `Item.dbd` and `ItemSparse.dbd` (and
+     pre-0.8.0 installs need it for `NPCModelItemSlotDisplayInfo.dbd`).
 
    > [!NOTE] The first tool call that opens CASC storage (`wow_model_export`,
    > `wow_creature_search`, `wow_creature_export`, `wow_map_search`,
-   > `wow_map_export`, or `wow_texture_export`) takes approximately 30–40
-   > seconds while storage indexes load. Subsequent operations run quickly.
+   > `wow_map_export`, `wow_texture_export`, or `wow_item_search`) takes
+   > approximately 30–40 seconds while storage indexes load. `wow_model_search`
+   > reads the listfile only and returns immediately. Subsequent CASC operations
+   > run quickly.
 
 ---
 
@@ -110,8 +114,8 @@ requires synced metadata tables:
      preserved via glTF `alphaMode` and `extras.wowBlend`. Also supports
      `"format": "glb"` or `"obj"`.
    - **WMO Models (Buildings & Dungeons):** Exported as `obj` + `mtl` by default
-     (or `"format": "gltf"`). Material paths use forward slashes so relative
-     textures resolve cleanly in Blender.
+     (also supports `"format": "gltf"` or `"glb"`). Material paths use forward
+     slashes so relative textures resolve cleanly in Blender.
    - Textures are decoded to `.png` beside the model matching the internal game
      path layout.
 
@@ -150,9 +154,15 @@ requires synced metadata tables:
      beard, features), baked NPC skin textures, and worn armor geosets (boots,
      robes, tabards).
    - **Attached Equipment:** Helms (slot 1), shoulder armor (slot 3), and
-     weapons (slots 16/17) are exported as separate models placed beside the
-     character. The tool response details each attachment's target bone name and
-     local Z-up offset for parenting in Blender.
+     weapons (slots 16/17, including `Creature.AlwaysItem` weapons on both
+     humanoids and non-humanoid creatures) are exported as separate models
+     placed beside the model when exporting `gltf` or `glb` (attachment exports
+     are skipped when `format` is `"obj"`). The tool response details each
+     attachment's target bone name and local Z-up offset for parenting in
+     Blender.
+   - **Known Limitations:** Extra skinned armor meshes used by some newer sets,
+     hair and face textures on humanoids, and player characters are not
+     supported yet.
 
 ---
 
@@ -194,6 +204,8 @@ requires synced metadata tables:
      - `"none"`: Exports terrain mesh geometry only without textures.
    - **`objects: true`**: Optionally exports and places the tile's WMO buildings
      and M2 doodads in world position.
+   - **Limitations:** Baked high-resolution terrain textures are not supported
+     (they require a GPU).
    - Files are written to `<outputDir>/maps/<directory>/`.
 
 ---

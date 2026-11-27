@@ -1,7 +1,7 @@
 {
   "name": "wow",
-  "version": "0.8.0",
-  "description": "Expert World of Warcraft addon development and asset extraction plugin providing specialized skills for feature implementation, taint & runtime error troubleshooting, scaffolding/audit gates, and headless 3D model/creature/texture/terrain export using the wow MCP server.",
+  "version": "0.9.0",
+  "description": "Expert World of Warcraft addon development, item hotfix lookup, and asset extraction plugin providing specialized skills for feature implementation (including local item database and DBCache.bin lookups), taint & runtime error troubleshooting, scaffolding/audit gates, and headless 3D model/creature/texture/terrain export using the wow MCP server.",
   "author": {
     "name": "Antigravity"
   },
@@ -18,6 +18,8 @@
     "gltf",
     "creatures",
     "terrain",
-    "blp"
+    "blp",
+    "items",
+    "hotfix"
   ]
 }

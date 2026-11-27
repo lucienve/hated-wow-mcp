@@ -119,7 +119,8 @@ The plugin bundles:
   hooking, pre-release validation gates, and 3D asset export constraints.
 * **4 Specialized Skills (Loaded On-Demand):**
   * `wow-addon-feature`: FrameXML UI templates, mixins, Settings API, texture
-    atlases, and cross-flavor API implementation.
+    atlases, local item & hotfix cache (`DBCache.bin`) lookups, and cross-flavor
+    API implementation.
   * `wow-addon-troubleshoot`: Lua runtime error stack trace analysis, execution
     and variable taint diagnosis ("Interface action failed"), combat lockdown
     safety (`InCombatLockdown()`), secret arguments/returns, and patch
